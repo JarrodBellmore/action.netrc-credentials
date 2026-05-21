@@ -83,6 +83,8 @@ export function writeNetrcEntry(entry: NetrcEntry, netrcPath?: string): string {
     ? prefix + '\n' + formatNetrcEntry(entry)
     : formatNetrcEntry(entry)
 
+  // `mode` in writeFileSync only applies when creating a new file; chmodSync
+  // ensures 0600 is enforced even when the file already exists.
   fs.writeFileSync(filePath, content, { mode: 0o600 })
   fs.chmodSync(filePath, 0o600)
 
