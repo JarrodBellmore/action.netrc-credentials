@@ -1,60 +1,129 @@
-# starter.github-workflow
+# action.netrc-credentials
 
 ## Purpose
 
-This repository is a starter template for building custom **GitHub Actions using
-TypeScript**. It combines:
+This repository provides a reusable **GitHub Action** that writes a `.netrc`
+entry so CLI tools — such as `git`, `curl`, and `wget` — can authenticate
+against a remote host without embedding credentials in URLs or duplicating shell
+snippets across every workflow.
 
-- The official GitHub Actions TypeScript patterns from
-  [actions/typescript-action](https://github.com/actions/typescript-action)
-- The Taskfile + Docker workflow conventions from
-  [JarrodBellmore/starter.spa](https://github.com/JarrodBellmore/starter.spa)
+Instead of copy-pasting this pattern into every repository:
 
-It provides:
+```bash
+{
+  echo "machine github.com"
+  echo "  login x-access-token"
+  printf '  password %s\n' "$TOKEN"
+} > "$HOME/.netrc"
+chmod 600 "$HOME/.netrc"
+```
 
-- A complete TypeScript GitHub Action scaffold with example inputs, outputs, and
-  logic
-- Task automation using [Taskfile.dev](https://taskfile.dev) wrapping all build,
-  test, lint, and package operations
-- Docker Compose configuration so all development tasks run in a consistent
-  Node.js 24 container
-- GitHub Actions CI/CD workflows for automated testing, dist verification, and
-  release management
-- A clean, extensible foundation ready to be customized for your specific action
+you call a single, versioned action:
 
-## Getting Started
+```yaml
+- uses: JarrodBellmore/action.netrc-credentials@v1
+  with:
+    machine: github.com
+    login: x-access-token
+    password: ${{ secrets.SHARED_REPO_TOKEN }}
+```
 
-### Development Container
+## Inputs
 
-This repository includes a dev container configuration for use with VS Code and
-GitHub Codespaces. The dev container provides:
+| Input      | Required | Default          | Description                                  |
+| ---------- | -------- | ---------------- | -------------------------------------------- |
+| `machine`  | yes      | `github.com`     | Hostname to authenticate (e.g. `github.com`) |
+| `login`    | yes      | `x-access-token` | Username for the machine                     |
+| `password` | yes      | —                | Password or token for the machine            |
 
-- Ubuntu-based environment with standard development tools
-- Bash shell (default)
-- Task runner pre-installed
-- Docker-in-Docker support for running containers
-- Docker, Task, ESLint, and Prettier VS Code extensions
+## Outputs
 
-#### Using with VS Code
+| Output       | Description                                         |
+| ------------ | --------------------------------------------------- |
+| `netrc-path` | Absolute path to the `.netrc` file that was written |
 
-1. Install the
-   [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-2. Open the repository in VS Code
-3. Click "Reopen in Container" when prompted (or use Command Palette: "Dev
-   Containers: Reopen in Container")
+## Usage
 
-#### Using with GitHub Codespaces
+### Authenticate to GitHub
 
-1. Click the "Code" button on GitHub
-2. Select the "Codespaces" tab
-3. Click "Create codespace on [branch]"
+```yaml
+- uses: JarrodBellmore/action.netrc-credentials@v1
+  with:
+    machine: github.com
+    login: x-access-token
+    password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Authenticate to a private registry
+
+```yaml
+- uses: JarrodBellmore/action.netrc-credentials@v1
+  with:
+    machine: registry.example.com
+    login: my-bot
+    password: ${{ secrets.REGISTRY_TOKEN }}
+```
+
+### How file modification works
+
+Each invocation performs an **upsert** on `$HOME/.netrc`:
+
+- **File does not exist** — the file is created with the new entry and
+  permissions set to `0600`.
+- **File exists, machine not present** — the new entry is appended; all other
+  entries are left untouched.
+- **File exists, same machine already present** — the existing entry for that
+  machine is replaced in-place; all other entries are preserved.
+
+Permissions are enforced as `0600` on every write, regardless of whether the
+file already existed.
+
+### Multiple machines
+
+To authenticate against more than one host, invoke the action once per machine.
+Because each call only touches the entry for its own machine, the calls are
+completely safe to stack:
+
+```yaml
+- uses: JarrodBellmore/action.netrc-credentials@v1
+  with:
+    machine: github.com
+    login: x-access-token
+    password: ${{ secrets.GITHUB_TOKEN }}
+
+- uses: JarrodBellmore/action.netrc-credentials@v1
+  with:
+    machine: registry.example.com
+    login: bot
+    password: ${{ secrets.REGISTRY_TOKEN }}
+```
+
+After these two steps the resulting `~/.netrc` contains both entries:
+
+```
+machine github.com
+  login x-access-token
+  password <github-token>
+machine registry.example.com
+  login bot
+  password <registry-token>
+```
+
+Calling the action a second time for the same machine simply replaces that entry
+— it will never duplicate or remove entries for other machines.
+
+---
+
+## Development
+
+This action is built with the Taskfile + Docker Compose conventions from
+[JarrodBellmore/starter.spa](https://github.com/JarrodBellmore/starter.spa).
 
 ### Prerequisites
 
-If not using the dev container, install the
-[Task](https://taskfile.dev/installation/) task runner. For local development,
-install the [GitHub CLI](https://cli.github.com/) and authenticate so Task can
-access remote Taskfiles using standard Git auth:
+Install the [Task](https://taskfile.dev/installation/) task runner. For local
+development, install the [GitHub CLI](https://cli.github.com/) and authenticate
+so Task can access remote Taskfiles:
 
 ```bash
 gh auth login
@@ -76,16 +145,27 @@ All tasks run inside the Docker container defined in `docker-compose.yml`.
 | Task              | Description                                         |
 | ----------------- | --------------------------------------------------- |
 | `task install`    | Install npm dependencies                            |
-| `task build`      | Bundle the action (alias for `task package`)        |
-| `task test`       | Run Jest unit tests                                 |
+| `task build`      | Bundle the action (generates `dist/`)               |
+| `task test`       | Run Vitest unit tests                               |
 | `task lint`       | Lint the source code with ESLint                    |
 | `task format`     | Check code formatting with Prettier                 |
 | `task format:fix` | Auto-fix code formatting                            |
-| `task package`    | Bundle action for distribution (generates `dist/`)  |
-| `task bundle`     | Format, lint, test, and bundle for distribution     |
 | `task local`      | Run the action locally using `@github/local-action` |
 | `task shell`      | Open an interactive shell in the container          |
 | `task clean`      | Remove `node_modules`, `dist`, and `coverage`       |
+
+### Local Action Testing
+
+Copy `.env.example` to `.env` and fill in your token, then run:
+
+```bash
+cp .env.example .env
+# edit .env — set INPUT_PASSWORD to a real token
+task local
+```
+
+This uses `@github/local-action` to simulate a GitHub Actions run locally
+without needing to push to GitHub.
 
 ## Project Structure
 
@@ -93,18 +173,15 @@ All tasks run inside the Docker container defined in `docker-compose.yml`.
 .
 ├── src/
 │   ├── index.ts          # Action entrypoint (imports and calls run())
-│   ├── main.ts           # Action main logic
-│   └── wait.ts           # Example helper module
+│   ├── main.ts           # Action orchestration — reads inputs, calls netrc
+│   └── netrc.ts          # Core .netrc read/write/update logic
 ├── __tests__/
 │   ├── main.test.ts      # Tests for main.ts
-│   └── wait.test.ts      # Tests for wait.ts
-├── __fixtures__/
-│   ├── core.ts           # Mock for @actions/core
-│   └── wait.ts           # Mock for wait module
+│   └── netrc.test.ts     # Tests for netrc.ts
 ├── dist/                 # Bundled output (committed to repo)
 ├── action.yml            # GitHub Action definition
-├── rollup.config.ts      # Rollup bundler configuration
-├── jest.config.js        # Jest test configuration
+├── vite.config.ts        # Vite bundler configuration
+├── vitest.config.ts      # Vitest test configuration
 ├── tsconfig.json         # TypeScript configuration
 ├── eslint.config.mjs     # ESLint configuration
 ├── .prettierrc.yml       # Prettier formatting configuration
@@ -117,29 +194,6 @@ All tasks run inside the Docker container defined in `docker-compose.yml`.
         └── release.yml       # Update version tags on release
 ```
 
-## Customizing the Action
-
-1. **Update `action.yml`** — Change the name, description, branding, inputs, and
-   outputs
-2. **Update `src/main.ts`** — Replace the example `wait` logic with your action
-   logic, reading inputs with `core.getInput()` and setting outputs with
-   `core.setOutput()`
-3. **Add tests** — Write Jest tests in `__tests__/` using the fixture pattern
-4. **Bundle** — Run `task package` to compile and bundle `src/` into `dist/`
-5. **Commit `dist/`** — The `dist/` directory must be committed so GitHub
-   Actions can run your action directly
-
-## Local Action Testing
-
-Copy `.env.example` to `.env` and configure your inputs, then run:
-
-```bash
-task local
-```
-
-This uses `@github/local-action` to simulate a GitHub Actions run locally
-without needing to push to GitHub.
-
 ## CI/CD Workflows
 
 ### CI (`ci.yml`)
@@ -148,27 +202,20 @@ Runs on every push and pull request:
 
 1. **Format check** — Validates code formatting with Prettier
 2. **Lint** — Validates code quality with ESLint
-3. **Test** — Runs Jest unit tests
+3. **Test** — Runs Vitest unit tests
 4. **Action test** — Runs the actual action using `uses: ./` to verify it works
    end-to-end
 
 ### Check Dist (`check-dist.yml`)
 
 Runs on push and PRs to `main`. Rebuilds the action and compares the result to
-the committed `dist/`. Fails if they differ — reminding you to run
-`task package` and commit the updated `dist/`.
+the committed `dist/`. Fails if they differ — reminding you to run `task build`
+and commit the updated `dist/`.
 
 ### Release (`release.yml`)
 
 Runs when a GitHub Release is published. Automatically updates the major version
-tag (e.g., `v1`) to point to the new release, so consumers pinning to a major
-version receive the update.
-
-## Usage
-
-Fork or clone this repository to use as a template for your new action.
-Customize `action.yml` and the `src/` files according to your action's
-requirements.
+tag (e.g., `v1`) to point to the new release.
 
 ### Required Secrets
 

@@ -1,7 +1,7 @@
 services:
   action:
     image: node:24
-    container_name: starter-github-action
+    container_name: netrc-credentials-action
     volumes:
       - .:/workspace
       - node_modules:/workspace/node_modules

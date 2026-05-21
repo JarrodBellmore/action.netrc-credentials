@@ -1,25 +1,36 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
-
+name: netrc Credentials
+description: >
+  Writes a .netrc entry for the specified machine so CLI tools (e.g. Git, curl)
+  can authenticate without embedding credentials in URLs.
+author: JarrodBellmore
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: lock
+  color: blue
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  machine:
+    description: The hostname to authenticate (e.g. github.com)
     required: true
-    default: '1000'
+    default: github.com
+  login:
+    description: The login / username for the machine
+    required: true
+    default: x-access-token
+  password:
+    description: The password or token for the machine
+    required: true
 
 # Define your outputs here.
 outputs:
-  startTime:
-    description: The time the action started waiting
-  endTime:
-    description: The time the action finished waiting
+  netrc-path:
+    description: Absolute path to the .netrc file that was written
+  netrc-contents:
+    description: >
+      Full contents of the .netrc file (useful for debugging). WARNING: This
+      output contains sensitive credentials. Treat it as a secret and avoid
+      printing it in logs or passing it to untrusted steps.
 
 runs:
   using: node24
