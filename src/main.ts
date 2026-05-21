@@ -12,12 +12,20 @@ export async function run(): Promise<void> {
     const login = core.getInput('login', { required: true })
     const password = core.getInput('password', { required: true })
 
+    // Mask the password so it is redacted in all subsequent log output.
+    core.setSecret(password)
+
     core.debug(`Writing .netrc entry for machine: ${machine}`)
 
-    const netrcPath = writeNetrcEntry({ machine, login, password })
+    const { path: netrcPath, contents } = writeNetrcEntry({
+      machine,
+      login,
+      password
+    })
 
     core.info(`Wrote .netrc entry for ${machine} to ${netrcPath}`)
     core.setOutput('netrc-path', netrcPath)
+    core.setOutput('netrc-contents', contents)
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)

@@ -58,6 +58,13 @@ export function removeNetrcEntry(content: string, machine: string): string {
   return result.join('\n')
 }
 
+export interface WriteNetrcResult {
+  /** Absolute path of the .netrc file that was written. */
+  path: string
+  /** Full contents of the .netrc file after writing. */
+  contents: string
+}
+
 /**
  * Writes (or updates) a .netrc entry for the given machine.
  *
@@ -67,9 +74,12 @@ export function removeNetrcEntry(content: string, machine: string): string {
  *
  * @param entry   The credentials to write.
  * @param netrcPath Override the default `$HOME/.netrc` path (useful for testing).
- * @returns The absolute path of the .netrc file that was written.
+ * @returns An object containing the absolute path and full contents of the written file.
  */
-export function writeNetrcEntry(entry: NetrcEntry, netrcPath?: string): string {
+export function writeNetrcEntry(
+  entry: NetrcEntry,
+  netrcPath?: string
+): WriteNetrcResult {
   const filePath = netrcPath ?? path.join(os.homedir(), '.netrc')
 
   let existingContent = ''
@@ -79,14 +89,14 @@ export function writeNetrcEntry(entry: NetrcEntry, netrcPath?: string): string {
 
   const cleaned = removeNetrcEntry(existingContent, entry.machine)
   const prefix = cleaned.trimEnd()
-  const content = prefix
+  const contents = prefix
     ? prefix + '\n' + formatNetrcEntry(entry)
     : formatNetrcEntry(entry)
 
   // `mode` in writeFileSync only applies when creating a new file; chmodSync
   // ensures 0600 is enforced even when the file already exists.
-  fs.writeFileSync(filePath, content, { mode: 0o600 })
+  fs.writeFileSync(filePath, contents, { mode: 0o600 })
   fs.chmodSync(filePath, 0o600)
 
-  return filePath
+  return { path: filePath, contents }
 }

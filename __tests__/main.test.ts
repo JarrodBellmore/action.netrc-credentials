@@ -13,6 +13,7 @@ vi.mock('@actions/core', () => ({
   getInput: vi.fn(),
   setOutput: vi.fn(),
   setFailed: vi.fn(),
+  setSecret: vi.fn(),
   warning: vi.fn()
 }))
 
@@ -31,7 +32,11 @@ describe('main.ts', () => {
       return inputs[name] ?? ''
     })
 
-    vi.mocked(netrc.writeNetrcEntry).mockReturnValue('/home/runner/.netrc')
+    vi.mocked(netrc.writeNetrcEntry).mockReturnValue({
+      path: '/home/runner/.netrc',
+      contents:
+        'machine github.com\n  login x-access-token\n  password ghp_testtoken\n'
+    })
   })
 
   afterEach(() => {
@@ -55,6 +60,21 @@ describe('main.ts', () => {
       'netrc-path',
       '/home/runner/.netrc'
     )
+  })
+
+  it('sets the netrc-contents output', async () => {
+    await run()
+
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'netrc-contents',
+      'machine github.com\n  login x-access-token\n  password ghp_testtoken\n'
+    )
+  })
+
+  it('masks the password with setSecret', async () => {
+    await run()
+
+    expect(core.setSecret).toHaveBeenCalledWith('ghp_testtoken')
   })
 
   it('logs an info message with the machine and path', async () => {

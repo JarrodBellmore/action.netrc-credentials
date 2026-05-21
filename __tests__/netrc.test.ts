@@ -9,7 +9,8 @@ import {
   formatNetrcEntry,
   removeNetrcEntry,
   writeNetrcEntry,
-  type NetrcEntry
+  type NetrcEntry,
+  type WriteNetrcResult
 } from '../src/netrc.js'
 
 vi.mock('node:fs')
@@ -110,13 +111,16 @@ describe('writeNetrcEntry', () => {
     vi.mocked(fs.writeFileSync).mockReturnValue(undefined)
     vi.mocked(fs.chmodSync).mockReturnValue(undefined)
 
-    const result = writeNetrcEntry({
+    const result: WriteNetrcResult = writeNetrcEntry({
       machine: 'github.com',
       login: 'x-access-token',
       password: 'token123'
     })
 
-    expect(result).toBe(FAKE_NETRC)
+    expect(result.path).toBe(FAKE_NETRC)
+    expect(result.contents).toBe(
+      'machine github.com\n  login x-access-token\n  password token123\n'
+    )
     expect(fs.writeFileSync).toHaveBeenCalledWith(
       FAKE_NETRC,
       'machine github.com\n  login x-access-token\n  password token123\n',
@@ -133,16 +137,15 @@ describe('writeNetrcEntry', () => {
     vi.mocked(fs.writeFileSync).mockReturnValue(undefined)
     vi.mocked(fs.chmodSync).mockReturnValue(undefined)
 
-    writeNetrcEntry({
+    const result = writeNetrcEntry({
       machine: 'github.com',
       login: 'x-access-token',
       password: 'newtoken'
     })
 
-    const written = vi.mocked(fs.writeFileSync).mock.calls[0][1] as string
-    expect(written).toContain('gitlab.com')
-    expect(written).toContain('github.com')
-    expect(written).toContain('newtoken')
+    expect(result.contents).toContain('gitlab.com')
+    expect(result.contents).toContain('github.com')
+    expect(result.contents).toContain('newtoken')
   })
 
   it('replaces an existing entry for the same machine', () => {
@@ -153,16 +156,17 @@ describe('writeNetrcEntry', () => {
     vi.mocked(fs.writeFileSync).mockReturnValue(undefined)
     vi.mocked(fs.chmodSync).mockReturnValue(undefined)
 
-    writeNetrcEntry({
+    const result = writeNetrcEntry({
       machine: 'github.com',
       login: 'x-access-token',
       password: 'new-token'
     })
 
-    const written = vi.mocked(fs.writeFileSync).mock.calls[0][1] as string
-    expect(written).not.toContain('old-token')
-    expect(written).toContain('new-token')
-    expect((written.match(/machine github\.com/g) ?? []).length).toBe(1)
+    expect(result.contents).not.toContain('old-token')
+    expect(result.contents).toContain('new-token')
+    expect(
+      (result.contents.match(/machine github\.com/g) ?? []).length
+    ).toBe(1)
   })
 
   it('uses a custom netrc path when provided', () => {
@@ -176,7 +180,7 @@ describe('writeNetrcEntry', () => {
       customPath
     )
 
-    expect(result).toBe(customPath)
+    expect(result.path).toBe(customPath)
     expect(fs.writeFileSync).toHaveBeenCalledWith(
       customPath,
       expect.any(String),

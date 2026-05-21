@@ -26,6 +26,8 @@ inputs:
 outputs:
   netrc-path:
     description: Absolute path to the .netrc file that was written
+  netrc-contents:
+    description: Full contents of the .netrc file (useful for debugging)
 
 runs:
   using: node24
