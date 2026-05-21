@@ -98,7 +98,7 @@ jobs:
 
       - name: Test Local Action
         id: test-action
-        uses: JarrodBellmore/starter.github-workflow@v0.0.1
+        uses: JarrodBellmore/starter.github-workflow@v0.0.2
         with:
           milliseconds: 2000
 
