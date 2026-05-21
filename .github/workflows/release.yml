@@ -26,19 +26,9 @@ jobs:
         uses: arduino/setup-task@v2
 
       - name: Configure Git authentication for remote Taskfiles
-        env:
-          SHARED_REPO_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
-        run: |
-          if [ -z "$SHARED_REPO_TOKEN" ]; then
-            echo "SHARED_REPO_TOKEN is required to fetch remote Taskfiles." >&2
-            exit 1
-          fi
-          {
-            echo "machine github.com"
-            echo "  login x-access-token"
-            printf '  password %s\n' "$SHARED_REPO_TOKEN"
-          } > "$HOME/.netrc"
-          chmod 600 "$HOME/.netrc"
+        uses: JarrodBellmore/action.netrc-credentials@v0
+        with:
+          password: ${{ secrets.SHARED_REPO_TOKEN }}
 
       - name: Build
         env:
