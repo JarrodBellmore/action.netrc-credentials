@@ -28,9 +28,9 @@ outputs:
     description: Absolute path to the .netrc file that was written
   netrc-contents:
     description: >
-      Full contents of the .netrc file (useful for debugging).
-      WARNING: This output contains sensitive credentials. Treat it as a secret
-      and avoid printing it in logs or passing it to untrusted steps.
+      Full contents of the .netrc file (useful for debugging). WARNING: This
+      output contains sensitive credentials. Treat it as a secret and avoid
+      printing it in logs or passing it to untrusted steps.
 
 runs:
   using: node24

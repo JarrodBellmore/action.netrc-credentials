@@ -164,9 +164,7 @@ describe('writeNetrcEntry', () => {
 
     expect(result.contents).not.toContain('old-token')
     expect(result.contents).toContain('new-token')
-    expect(
-      (result.contents.match(/machine github\.com/g) ?? []).length
-    ).toBe(1)
+    expect((result.contents.match(/machine github\.com/g) ?? []).length).toBe(1)
   })
 
   it('uses a custom netrc path when provided', () => {
