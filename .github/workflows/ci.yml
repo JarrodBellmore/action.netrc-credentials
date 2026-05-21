@@ -100,7 +100,7 @@ jobs:
         id: test-action
         uses: jarrodbellmore/starter.github-workflow@v0.0.2
         with:
-          milliseconds: 2000
+          milliseconds: 3000
 
       - name: Print Output
         run: |
