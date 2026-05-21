@@ -64,9 +64,25 @@ you call a single, versioned action:
     password: ${{ secrets.REGISTRY_TOKEN }}
 ```
 
+### How file modification works
+
+Each invocation performs an **upsert** on `$HOME/.netrc`:
+
+- **File does not exist** — the file is created with the new entry and
+  permissions set to `0600`.
+- **File exists, machine not present** — the new entry is appended; all other
+  entries are left untouched.
+- **File exists, same machine already present** — the existing entry for that
+  machine is replaced in-place; all other entries are preserved.
+
+Permissions are enforced as `0600` on every write, regardless of whether the
+file already existed.
+
 ### Multiple machines
 
-Call the action once per machine:
+To authenticate against more than one host, invoke the action once per machine.
+Because each call only touches the entry for its own machine, the calls are
+completely safe to stack:
 
 ```yaml
 - uses: JarrodBellmore/action.netrc-credentials@v1
@@ -82,8 +98,19 @@ Call the action once per machine:
     password: ${{ secrets.REGISTRY_TOKEN }}
 ```
 
-Each call appends (or replaces) only the entry for the specified machine, so
-subsequent calls do not clobber earlier ones.
+After these two steps the resulting `~/.netrc` contains both entries:
+
+```
+machine github.com
+  login x-access-token
+  password <github-token>
+machine registry.example.com
+  login bot
+  password <registry-token>
+```
+
+Calling the action a second time for the same machine simply replaces that entry
+— it will never duplicate or remove entries for other machines.
 
 ---
 
