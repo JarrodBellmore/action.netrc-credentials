@@ -1,6 +1,6 @@
 {
-  "name": "starter-github-action",
-  "description": "A starter template for building custom GitHub Actions with TypeScript",
+  "name": "action-netrc-credentials",
+  "description": "GitHub Action to write .netrc entries for authenticating CLI tools such as Git",
   "version": "0.0.0",
   "author": "",
   "type": "module",

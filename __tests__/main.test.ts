@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as core from '@actions/core'
-import { wait } from '../src/wait.js'
+import * as netrc from '../src/netrc.js'
 import { run } from '../src/main.js'
 
 vi.mock('@actions/core', () => ({
@@ -16,64 +16,62 @@ vi.mock('@actions/core', () => ({
   warning: vi.fn()
 }))
 
-vi.mock('../src/wait.js', () => ({
-  wait: vi.fn()
+vi.mock('../src/netrc.js', () => ({
+  writeNetrcEntry: vi.fn()
 }))
 
 describe('main.ts', () => {
   beforeEach(() => {
-    // Set the action's inputs as return values from core.getInput().
-    vi.mocked(core.getInput).mockImplementation(() => '500')
+    vi.mocked(core.getInput).mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        machine: 'github.com',
+        login: 'x-access-token',
+        password: 'ghp_testtoken'
+      }
+      return inputs[name] ?? ''
+    })
 
-    // Mock the wait function so that it does not actually wait.
-    vi.mocked(wait).mockImplementation(() => Promise.resolve('done!'))
+    vi.mocked(netrc.writeNetrcEntry).mockReturnValue('/home/runner/.netrc')
   })
 
   afterEach(() => {
     vi.resetAllMocks()
   })
 
-  it('Sets the startTime output', async () => {
+  it('calls writeNetrcEntry with the correct inputs', async () => {
     await run()
 
-    // Verify the startTime output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'startTime',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
+    expect(netrc.writeNetrcEntry).toHaveBeenCalledWith({
+      machine: 'github.com',
+      login: 'x-access-token',
+      password: 'ghp_testtoken'
+    })
+  })
+
+  it('sets the netrc-path output', async () => {
+    await run()
+
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'netrc-path',
+      '/home/runner/.netrc'
     )
   })
 
-  it('Sets the endTime output', async () => {
+  it('logs an info message with the machine and path', async () => {
     await run()
 
-    // Verify the endTime output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      2,
-      'endTime',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
+    expect(core.info).toHaveBeenCalledWith(
+      'Wrote .netrc entry for github.com to /home/runner/.netrc'
     )
   })
 
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    vi.mocked(core.getInput)
-      .mockClear()
-      .mockReturnValueOnce('this is not a number')
-
-    // Clear the wait mock and return a rejected promise.
-    vi.mocked(wait)
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
+  it('calls setFailed when writeNetrcEntry throws', async () => {
+    vi.mocked(netrc.writeNetrcEntry).mockImplementation(() => {
+      throw new Error('permission denied')
+    })
 
     await run()
 
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
-    )
+    expect(core.setFailed).toHaveBeenCalledWith('permission denied')
   })
 })
