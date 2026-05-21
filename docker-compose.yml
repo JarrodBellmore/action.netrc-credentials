@@ -1,0 +1,16 @@
+services:
+  action:
+    image: node:24
+    container_name: starter-github-action
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=development
+      - GITHUB_TOKEN
+      - CI
+    command: sleep infinity
+
+volumes:
+  node_modules:

@@ -1,0 +1,92 @@
+version: '3'
+
+dotenv: ['.env', '.env.local']
+
+includes:
+  docker:
+    taskfile: https://github.com/JarrodBellmore/shared.tasks.git//docker/Taskfile.yml?ref=v0.7.0
+    internal: true
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  install:
+    desc: Install npm dependencies
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm install
+
+  build:
+    desc: Compile TypeScript source files
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run build
+
+  lint:
+    desc: Lint the action source code
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run lint
+
+  format:
+    desc: Check code formatting
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run format:check
+
+  format:fix:
+    desc: Auto-fix code formatting
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run format:write
+
+  test:
+    desc: Run unit tests
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run test
+
+  local:
+    desc: Run the action locally using @github/local-action
+    deps: [install]
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: npm run local-action
+
+  shell:
+    desc: Open an interactive shell in the action container
+    cmds:
+      - task: docker:compose:shell
+        vars:
+          SERVICE: action
+
+  clean:
+    desc: Clean build artifacts and dependencies
+    cmds:
+      - task: docker:compose:run
+        vars:
+          SERVICE: action
+          CMD: rm -rf node_modules dist coverage .task

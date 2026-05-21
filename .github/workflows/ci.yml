@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  test:
+    name: Unit Tests and Linting
+    # Run on any push event. For pull_request events, only run when the PR comes from a fork
+    # (i.e., the head repo is different from the base repository). This prevents duplicate
+    # runs when commits are pushed to branches in the same repository (push already triggers
+    # the job), but still runs checks for PRs originating from forks.
+    if:
+      github.event_name == 'push' || (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Configure Git authentication for remote Taskfiles
+        env:
+          SHARED_REPO_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: |
+          if [ -z "$SHARED_REPO_TOKEN" ]; then
+            echo "SHARED_REPO_TOKEN is required to fetch remote Taskfiles." >&2
+            exit 1
+          fi
+          {
+            echo "machine github.com"
+            echo "  login x-access-token"
+            printf '  password %s\n' "$SHARED_REPO_TOKEN"
+          } > "$HOME/.netrc"
+          chmod 600 "$HOME/.netrc"
+
+      - name: Check Format
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task format -y
+
+      - name: Lint
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task lint -y
+
+      - name: Test
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task test -y
+
+  test-action:
+    name: GitHub Actions Test
+    # Run on any push event. For pull_request events, only run when the PR comes from a fork.
+    if:
+      github.event_name == 'push' || (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Configure Git authentication for remote Taskfiles
+        env:
+          SHARED_REPO_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: |
+          if [ -z "$SHARED_REPO_TOKEN" ]; then
+            echo "SHARED_REPO_TOKEN is required to fetch remote Taskfiles." >&2
+            exit 1
+          fi
+          {
+            echo "machine github.com"
+            echo "  login x-access-token"
+            printf '  password %s\n' "$SHARED_REPO_TOKEN"
+          } > "$HOME/.netrc"
+          chmod 600 "$HOME/.netrc"
+
+      - name: Build
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task build -y
+
+      - name: Test Local Action
+        id: test-action
+        uses: ./
+        with:
+          milliseconds: 2000
+
+      - name: Print Output
+        run: |
+          echo "Start Time: ${{ steps.test-action.outputs.startTime }}"
+          echo "End Time: ${{ steps.test-action.outputs.endTime }}"
