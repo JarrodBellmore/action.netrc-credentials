@@ -10,6 +10,8 @@ name: Auto Release
 # 5. Commit package.json + dist/ to main and capture the resulting SHA.
 # 6. Use actions.release-manager in `release` mode with that SHA so the tag
 #    and GitHub release point at the commit containing the correct version.
+# 7. Update floating major and minor version tags (e.g. v0, v0.1) so consumers
+#    pinned to a major version automatically receive minor/patch updates.
 on:
   pull_request:
     types: [closed]
@@ -79,3 +81,13 @@ jobs:
           mode: release
           version: ${{ steps.calculate.outputs.version }}
           sha: ${{ steps.commit.outputs.sha }}
+
+      - name: Update floating version tags
+        run: |
+          TAG="${{ steps.calculate.outputs.version }}"
+          MAJOR=$(echo "$TAG" | cut -d. -f1)
+          MINOR=$(echo "$TAG" | cut -d. -f1-2)
+          git tag -fa "$MAJOR" -m "Update $MAJOR tag to $TAG"
+          git tag -fa "$MINOR" -m "Update $MINOR tag to $TAG"
+          git push origin "$MAJOR" --force
+          git push origin "$MINOR" --force
