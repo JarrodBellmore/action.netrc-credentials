@@ -1,0 +1,81 @@
+name: Auto Release
+
+# When a PR is merged into main:
+# 1. Build dist/ so the action is ready to execute.
+# 2. Use actions.release-manager in `calculate` mode to determine the next
+#    version from PR labels or conventional commit prefix, without creating the
+#    tag or release yet.
+# 3. Bump package.json to the new version number.
+# 4. Rebuild dist/ so it reflects the updated package.json.
+# 5. Commit package.json + dist/ to main and capture the resulting SHA.
+# 6. Use actions.release-manager in `release` mode with that SHA so the tag
+#    and GitHub release point at the commit containing the correct version.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  release:
+    name: Create Release
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Configure Git authentication for remote Taskfiles
+        uses: JarrodBellmore/action.netrc-credentials@v0
+        with:
+          password: ${{ secrets.SHARED_REPO_TOKEN }}
+
+      - name: Build
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task build -y
+
+      - name: Calculate next version
+        id: calculate
+        uses: JarrodBellmore/actions.release-manager@v0.2.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pull_request: ${{ toJSON(github.event.pull_request) }}
+          mode: calculate
+
+      - name: Bump package.json version
+        run: npm version ${{ steps.calculate.outputs.version-number }} --no-git-tag-version
+
+      - name: Rebuild dist/
+        env:
+          TASK_X_REMOTE_TASKFILES: 1
+          GITHUB_TOKEN: ${{ secrets.SHARED_REPO_TOKEN }}
+        run: task build -y
+
+      - name: Commit and push package.json + dist/
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git add -f dist/
+          git commit -m "chore: release ${{ steps.calculate.outputs.version }}"
+          git push origin ${{ github.event.pull_request.base.ref }}
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: JarrodBellmore/actions.release-manager@v0.2.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pull_request: ${{ toJSON(github.event.pull_request) }}
+          mode: release
+          version: ${{ steps.calculate.outputs.version }}
+          sha: ${{ steps.commit.outputs.sha }}
