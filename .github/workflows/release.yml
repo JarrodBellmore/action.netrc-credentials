@@ -23,7 +23,7 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: arduino/setup-task@v3
 
       - name: Configure Git authentication for remote Taskfiles
         uses: JarrodBellmore/action.netrc-credentials@v0
